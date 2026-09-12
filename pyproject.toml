@@ -1,0 +1,11 @@
+[project]
+name = "local-ai-cat-detector"
+version = "0.1.0"
+description = "A simple program that use a local VLM model to detect cats in any pictures!"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "pillow>=12.3.0",
+    "requests>=2.34.2",
+    "rich>=15.0.0",
+]
