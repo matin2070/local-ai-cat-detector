@@ -35,7 +35,7 @@ def draw_bounding_box(
     to_draw = Image.open(image)
     draw = ImageDraw.Draw(to_draw)
 
-    draw.rectangle([x1, y1, x2, y2], outline="green", width=29)
+    draw.rectangle([x1, y1, x2, y2], outline="green", width=9)
 
     to_draw.save("/home/torham/Pictures/detected_cat.png")
 
