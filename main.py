@@ -150,6 +150,7 @@ def main(pic_path: str, prompt: str = PROMPT) -> dict[str, str | float | int]:
 
 if __name__ == "__main__":
     pic_address = input("Enter picture address: ")
+    image_width, image_height = get_image_size(pic_address)
 
     result = main(prompt=PROMPT, pic_path=pic_address)
     response = f"""
