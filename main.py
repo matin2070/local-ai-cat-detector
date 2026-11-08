@@ -10,7 +10,7 @@ from rich import print as rprint
 NINE_ROUTER_BASE_URL = os.getenv("NINE_ROUTER_BASE_URL", "http://localhost:20128/v1").rstrip("/")
 NINE_ROUTER_API_KEY = os.getenv("NINE_ROUTER_API_KEY", "")
 TARGET_MODEL = os.getenv("NINE_ROUTER_MODEL", "qwen2.5-vl")
-PROMPT = "Locate The Cat. Return only its bounding box as a list of [x1, y1, x2, y2]"
+PROMPT = "Locate the cat and return only its bounding box as [x1, y1, x2, y2]. Coordinates must be integer pixel coordinates in the original image."
 
 
 def load_pic(path: str) -> io.BytesIO:
@@ -24,6 +24,42 @@ def load_pic(path: str) -> io.BytesIO:
 def get_pic_base64(image: io.BytesIO) -> str:
     img_bytes = image.getvalue()
     return base64.b64encode(img_bytes).decode("utf-8")
+
+
+def get_image_size(path: str) -> tuple[int, int]:
+    with Image.open(path) as image:
+        return image.size
+
+
+def normalize_bounding_box(
+    bounding_box: list[int | float],
+    image_width: int,
+    image_height: int,
+) -> tuple[int, int, int, int]:
+    x1, y1, x2, y2 = bounding_box
+    max_x = max(x1, x2)
+    max_y = max(y1, y2)
+
+    if max_x <= 1 and max_y <= 1:
+        x1, x2 = x1 * image_width, x2 * image_width
+        y1, y2 = y1 * image_height, y2 * image_height
+    elif max_x <= 1000 and max_y <= 1000 and (
+        max_x > image_width
+        or max_y > image_height
+        or image_width > 1000
+        or image_height > 1000
+    ):
+        x1, x2 = x1 * image_width / 1000, x2 * image_width / 1000
+        y1, y2 = y1 * image_height / 1000, y2 * image_height / 1000
+
+    x1, x2 = sorted((round(x1), round(x2)))
+    y1, y2 = sorted((round(y1), round(y2)))
+    return (
+        max(0, min(x1, image_width - 1)),
+        max(0, min(y1, image_height - 1)),
+        max(0, min(x2, image_width - 1)),
+        max(0, min(y2, image_height - 1)),
+    )
 
 
 def draw_bounding_box(
@@ -45,6 +81,11 @@ def draw_bounding_box(
 
 def main(pic_path: str, prompt: str = PROMPT) -> dict[str, str | float | int]:
 
+    image_width, image_height = get_image_size(pic_path)
+    prompt = (
+        f"{prompt} The original image size is {image_width}x{image_height} pixels. "
+        "Do not use normalized coordinates or a 0-1000 coordinate system."
+    )
     body = {
         "model": TARGET_MODEL,
         "messages": [
@@ -137,6 +178,9 @@ if __name__ == "__main__":
             "Expected [x1, y1, x2, y2]."
         )
 
+    bounding_box = normalize_bounding_box(
+        bounding_box, image_width=image_width, image_height=image_height
+    )
     boxed_pic = draw_bounding_box(
         x1=bounding_box[0],
         y1=bounding_box[1],
