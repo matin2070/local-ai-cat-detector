@@ -1,14 +1,15 @@
 import base64
 import io
 import json
+import os
 
 import requests
 from PIL import Image, ImageDraw
 from rich import print as rprint
 
-OLLAMA_ADDRESS = "http://localhost:11434"
-API_ROUTE = "/api/chat"
-TARGET_MODEL = "qwen2.5vl:3b"
+NINE_ROUTER_BASE_URL = os.getenv("NINE_ROUTER_BASE_URL", "http://localhost:20128/v1").rstrip("/")
+NINE_ROUTER_API_KEY = os.getenv("NINE_ROUTER_API_KEY", "")
+TARGET_MODEL = os.getenv("NINE_ROUTER_MODEL", "qwen2.5-vl")
 PROMPT = "Locate The Cat. Return only its bounding box as a list of [x1, y1, x2, y2]"
 
 
@@ -49,33 +50,48 @@ def main(pic_path: str, prompt: str = PROMPT) -> dict[str, str | float | int]:
         "messages": [
             {
                 "role": "user",
-                "content": (prompt),
-                "images": [get_pic_base64(load_pic(pic_path))],
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{get_pic_base64(load_pic(pic_path))}"
+                        },
+                    },
+                ],
             }
         ],
-        "options": {
-            "num_predict": 30,
-            "temperature": 0.0,
-        },
+        "temperature": 0.0,
+        "max_tokens": 30,
         "stream": False,
-        "keep_alive": -1,
     }
 
     print(f"Requesting to {TARGET_MODEL}...")
-    result = requests.post(url=f"{OLLAMA_ADDRESS}{API_ROUTE}", json=body)
+    headers = {"Content-Type": "application/json"}
+    if NINE_ROUTER_API_KEY:
+        headers["Authorization"] = f"Bearer {NINE_ROUTER_API_KEY}"
+
+    result = requests.post(
+        url=f"{NINE_ROUTER_BASE_URL}/chat/completions",
+        headers=headers,
+        json=body,
+        timeout=120,
+    )
     result.raise_for_status()
 
     data = result.json()
     rprint(data)
+    usage = data.get("usage", {})
+    completion_tokens = int(usage.get("completion_tokens", 0))
 
     return {
-        "response": data["message"]["content"],
-        "model": data["model"],
-        "total_duration": data["total_duration"] / 1e9,
-        "prompt_eval_duration": data["prompt_eval_duration"] / 1e9,
-        "eval_duration": data["eval_duration"] / 1e9,
-        "eval_count": int(data["eval_count"]),
-        "token_per_second": data["eval_count"] / (data["eval_duration"] / 1e9),
+        "response": data["choices"][0]["message"]["content"],
+        "model": data.get("model", TARGET_MODEL),
+        "total_duration": 0.0,
+        "prompt_eval_duration": 0.0,
+        "eval_duration": 0.0,
+        "eval_count": completion_tokens,
+        "token_per_second": 0.0,
     }
 
 

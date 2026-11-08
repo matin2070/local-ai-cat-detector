@@ -1,8 +1,9 @@
+import os
 import requests
 
-VLM_ADDRESS = "http://localhost:11434/"
-API_ROUTE = "api/generate"
-TARGET_MODEL = "llama3.2:3b"
+NINE_ROUTER_BASE_URL = os.getenv("NINE_ROUTER_BASE_URL", "http://localhost:20128/v1").rstrip("/")
+NINE_ROUTER_API_KEY = os.getenv("NINE_ROUTER_API_KEY", "")
+TARGET_MODEL = os.getenv("NINE_ROUTER_MODEL", "llama-3.2-3b")
 
 
 def get_prompt() -> str:
@@ -11,22 +12,37 @@ def get_prompt() -> str:
 
 def main(prompt: str) -> dict[str, str | float | int]:
 
-    body = {"model": TARGET_MODEL, "stream": False, "prompt": prompt}
+    body = {
+        "model": TARGET_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.0,
+        "stream": False,
+    }
 
     print(f"Requesting to {TARGET_MODEL}...")
-    result = requests.post(url=f"{VLM_ADDRESS}{API_ROUTE}", json=body)
-    if result.status_code != 200:
-        raise ValueError(f"Wrong status code! {result.status_code}")
+    headers = {"Content-Type": "application/json"}
+    if NINE_ROUTER_API_KEY:
+        headers["Authorization"] = f"Bearer {NINE_ROUTER_API_KEY}"
 
+    result = requests.post(
+        url=f"{NINE_ROUTER_BASE_URL}/chat/completions",
+        headers=headers,
+        json=body,
+        timeout=120,
+    )
+    result.raise_for_status()
     data = result.json()
+    usage = data.get("usage", {})
+    completion_tokens = int(usage.get("completion_tokens", 0))
+
     return {
-        "response": data["response"],
-        "model": data["model"],
-        "total_duration": data["total_duration"] / 1e9,
-        "prompt_eval_duration": data["prompt_eval_duration"] / 1e9,
-        "eval_duration": data["eval_duration"] / 1e9,
-        "eval_count": int(data["eval_count"]),
-        "token_per_second": data["eval_count"] / (data["eval_duration"] / 1e9),
+        "response": data["choices"][0]["message"]["content"],
+        "model": data.get("model", TARGET_MODEL),
+        "total_duration": 0.0,
+        "prompt_eval_duration": 0.0,
+        "eval_duration": 0.0,
+        "eval_count": completion_tokens,
+        "token_per_second": 0.0,
     }
 
 

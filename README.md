@@ -2,7 +2,7 @@
 
 > **Where is the cat?**
 
-A small experimental project for learning how to run **AI vision models locally** with Ollama and Python.
+A small experimental project for learning how to use **AI vision models through 9Router** and Python.
 
 The goal is simple:
 
@@ -19,9 +19,9 @@ This project was built as a hands-on way to understand the building blocks behin
 Along the way, it covers:
 
 * What **LLMs** and **VLMs** are
-* What **Ollama** does
-* Running AI models locally
-* Talking to Ollama through its REST API
+* What **9Router** does
+* Routing requests to AI providers
+* Talking to an OpenAI-compatible REST API
 * Sending images to a vision model
 * Base64 image encoding
 * Asking a VLM for a bounding box
@@ -71,11 +71,11 @@ The model looks at the image and returns the location of the cat as a bounding b
 
 ---
 
-## 🦙 What is Ollama?
+## 🔀 What is 9Router?
 
-Ollama makes it easy to run AI models locally.
+9Router provides an OpenAI-compatible API and routes requests to the providers and models configured in its dashboard.
 
-Instead of sending an image to a remote AI API, the application communicates with a local Ollama server:
+The application communicates with the local 9Router endpoint:
 
 ```text
 Python application
@@ -83,8 +83,8 @@ Python application
        │ HTTP
        ▼
 ┌─────────────────┐
-│     Ollama      │
-│ localhost:11434 │
+│    9Router      │
+│ localhost:20128 │
 └────────┬────────┘
          │
          ▼
@@ -104,7 +104,7 @@ You'll need:
 
 * Linux, macOS, or Windows
 * Python 3.11+
-* Ollama
+* 9Router with a vision-capable provider/model configured
 * Enough RAM/VRAM to run the selected model
 * An image containing a cat
 
@@ -121,39 +121,19 @@ The VLM runs using a combination of CPU and GPU resources.
 
 ## 📦 Installation
 
-### 1. Install Ollama
+### 1. Install and configure 9Router
 
-Install Ollama from:
+Install 9Router by following:
 
-https://ollama.com/
+https://github.com/decolua/9router
 
-Verify that it is available:
-
-```bash
-ollama --version
-```
-
----
-
-### 2. Download the models
-
-For the language-model experiments:
+Start it and open the dashboard:
 
 ```bash
-ollama pull llama3.2:3b
+9router
 ```
 
-For image understanding:
-
-```bash
-ollama pull qwen2.5vl:3b
-```
-
-You can verify the installed models with:
-
-```bash
-ollama list
-```
+The default API endpoint is `http://localhost:20128/v1`. Connect a vision-capable provider in the dashboard and copy the API key and model name.
 
 ---
 
@@ -172,6 +152,14 @@ Install the dependencies:
 
 ```bash
 uv sync
+```
+
+Configure the connection:
+
+```bash
+export NINE_ROUTER_BASE_URL="http://localhost:20128/v1"
+export NINE_ROUTER_API_KEY="your-dashboard-api-key"
+export NINE_ROUTER_MODEL="your-vision-model-name"
 ```
 
 Then run the application:
@@ -197,7 +185,7 @@ The core pipeline is:
                │ base64
                ▼
         ┌──────────────┐
-        │    Ollama    │
+        │   9Router    │
         └──────┬───────┘
                │
                ▼
@@ -285,7 +273,7 @@ Request
   └── Generate output  ← much faster
 ```
 
-Ollama provides timing information such as:
+Some upstream providers may return usage information, but the OpenAI-compatible response does not guarantee Ollama-style timing fields.
 
 * model load duration
 * prompt evaluation duration
@@ -298,7 +286,7 @@ This makes it possible to see what the model is actually spending time doing.
 
 ## 🖥️ Local AI
 
-One of the main reasons for building this project was to understand what is actually happening when an AI model runs locally.
+One of the main reasons for building this project was to understand what is actually happening when an AI model is accessed through an API.
 
 There is no magic API call like:
 
@@ -313,9 +301,9 @@ Python
   ↓
 HTTP request
   ↓
-Ollama
+9Router
   ↓
-Local model
+Configured provider/model
   ↓
 Inference
   ↓
@@ -355,9 +343,8 @@ Possible future experiments include:
 
 ## 📚 Useful resources
 
-* [Ollama](https://ollama.com/)
-* [Ollama Vision documentation](https://docs.ollama.com/capabilities/vision)
-* [Ollama Structured Outputs](https://docs.ollama.com/capabilities/structured-outputs)
+* [9Router](https://github.com/decolua/9router)
+* [9Router API documentation](https://github.com/decolua/9router)
 * [Qwen2.5-VL](https://qwenlm.github.io/blog/qwen2.5-vl/)
 
 ---
@@ -372,7 +359,7 @@ Start with:
 
 And end up learning about:
 
-> **LLMs → VLMs → Ollama → APIs → image encoding → inference → tokens → GPU memory → bounding boxes → image processing**
+> **LLMs → VLMs → 9Router → APIs → image encoding → inference → tokens → bounding boxes → image processing**
 
 That's the fun part.
 
