@@ -62,7 +62,8 @@ def main(pic_path: str, prompt: str = PROMPT) -> dict[str, str | float | int]:
             }
         ],
         "temperature": 0.0,
-        "max_tokens": 30,
+        "max_tokens": 128,
+        "reasoning": {"effort": "none"},
         "stream": False,
     }
 
@@ -83,9 +84,20 @@ def main(pic_path: str, prompt: str = PROMPT) -> dict[str, str | float | int]:
     rprint(data)
     usage = data.get("usage", {})
     completion_tokens = int(usage.get("completion_tokens", 0))
+    choice = data.get("choices", [{}])[0]
+    message = choice.get("message", {})
+    content = message.get("content")
+    if not content:
+        finish_reason = choice.get("finish_reason", "unknown")
+        reasoning = message.get("reasoning", "")
+        raise RuntimeError(
+            "The model did not return a bounding box. "
+            f"finish_reason={finish_reason!r}, reasoning={reasoning!r}. "
+            "Try a vision model with reasoning disabled or increase max_tokens."
+        )
 
     return {
-        "response": data["choices"][0]["message"]["content"],
+        "response": content,
         "model": data.get("model", TARGET_MODEL),
         "total_duration": 0.0,
         "prompt_eval_duration": 0.0,
@@ -108,7 +120,23 @@ if __name__ == "__main__":
     Speed: {result["token_per_second"]:.2f} tokens/s
     """
 
-    bounding_box = json.loads(result["response"])
+    try:
+        bounding_box = json.loads(result["response"])
+    except json.JSONDecodeError as error:
+        raise RuntimeError(
+            f"The model returned invalid bounding-box JSON: {result['response']!r}"
+        ) from error
+
+    if (
+        not isinstance(bounding_box, list)
+        or len(bounding_box) != 4
+        or not all(isinstance(value, (int, float)) for value in bounding_box)
+    ):
+        raise RuntimeError(
+            f"The model returned an invalid bounding box: {bounding_box!r}. "
+            "Expected [x1, y1, x2, y2]."
+        )
+
     boxed_pic = draw_bounding_box(
         x1=bounding_box[0],
         y1=bounding_box[1],
